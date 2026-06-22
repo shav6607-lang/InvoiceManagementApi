@@ -8,16 +8,14 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy only the project file(s) first to leverage Docker cache for dependencies
-COPY ..
+COPY . .
+
 RUN dotnet restore
-RUN dotnet publish -c Relase -o /app/publish 
+RUN dotnet publish -c Release -o /app/publish
 
-
-# Stage 3: Publish the binaries
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
-# Stage 4: Final lean runtime image
-COPY --from=build /app/publish
-ENTRYPOINT ["dotnet","InvoiceManagementApi.dll"]
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "InvoiceManagementApi.dll"]
