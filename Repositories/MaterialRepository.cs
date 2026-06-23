@@ -4,28 +4,47 @@ using Microsoft.Extensions.Configuration;
 using System.Data;
 using System.Threading.Tasks;
 using InvoiceManagementApi.Models;
+using InvoiceManagementApi.Utilities;
 
 namespace InvoiceManagementApi.Repositories
 {
     public class MaterialRepository : IMaterialRepository
     {
         private readonly string _connectionString;
-        private readonly Microsoft.Extensions.Logging.ILogger<MaterialRepository> _logger;
+        private readonly ILogger<MaterialRepository> _logger;
+        private readonly IConfiguration _configuration;
 
-        public MaterialRepository(IConfiguration configuration, Microsoft.Extensions.Logging.ILogger<MaterialRepository> logger)
+        public MaterialRepository(IConfiguration configuration, ILogger<MaterialRepository> logger)
         {
-            _logger = logger;
-            // Try common connection string keys
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
-          
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            var rawConnectionString = configuration.GetConnectionString("DefaultConnection");
+            _connectionString = rawConnectionString;
+
+            if (!string.IsNullOrWhiteSpace(rawConnectionString))
+            {
+                try
+                {
+                    var decrypted = Utility.ConnectionStringDecrypt(rawConnectionString);
+                    if (!string.IsNullOrWhiteSpace(decrypted))
+                    {
+                        _connectionString = decrypted;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to decrypt connection string. Falling back to the raw configuration value.");
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(_connectionString))
             {
-                throw new InvalidOperationException("Database connection string is not configured. Please set 'ConnectionStrings:DefaultConnection' (or 'ConnectionStrings:TCA') in appsettings.json or environment variables.");
+                throw new InvalidOperationException("Database connection string is not configured. Please set 'ConnectionStrings:DefaultConnection' in appsettings.json or environment variables.");
             }
         }
 
-        public async Task<IEnumerable<MaterialMaster>> GetMaterialsAsync(int? companyId = null, int? materialId = null)
+        public async Task<IEnumerable<MaterialMaster>> GetMaterialsAsync(int? companyId = null, int? materialId = null, int? materialType = null, int ? userid = null)
         {
             var connString = _connectionString;
             if (!connString.Contains("Connect Timeout", StringComparison.OrdinalIgnoreCase) && !connString.Contains("ConnectTimeout", StringComparison.OrdinalIgnoreCase))
@@ -38,18 +57,18 @@ namespace InvoiceManagementApi.Repositories
             }
 
             using var conn = new SqlConnection(connString);
-            var sql = "SELECT MaterialId, CompanyId, MaterialName, RatePerUnit, MaterialType FROM MaterialMaster WHERE IsActive = 1";
-            if (companyId.HasValue)
-            {
-                sql += " AND CompanyId = @CompanyId";
-            }
-            if (materialId.HasValue)
-            {
-                sql += " AND MaterialId = @MaterialId";
-            }
 
-            await conn.OpenAsync();
-            var rows = await conn.QueryAsync<MaterialMaster>(sql, new { CompanyId = companyId, MaterialId = materialId });
+            var rows = await conn.QueryAsync<MaterialMaster>(
+               "sp_GetMaterialList",
+               new
+               {
+                   CompanyId = companyId,
+                   MaterialId = materialId,
+                   MaterialType = materialType,
+                   UserId = userid
+               },
+               commandType: CommandType.StoredProcedure);
+
             return rows;
         }
 

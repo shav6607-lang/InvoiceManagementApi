@@ -6,7 +6,7 @@ namespace InvoiceManagementApi.Repositories
     public interface IMaterialRepository
     {
         Task<MaterialResult> InsertOrUpdateMaterialAsync(MaterialRequest model);
-        Task<IEnumerable<MaterialMaster>> GetMaterialsAsync(int? companyId = null, int? materialId = null);
+        Task<IEnumerable<MaterialMaster>> GetMaterialsAsync(int? companyId = null, int? materialId = null, int? materialType = null, int? userid = null);
         Task<IEnumerable<CompanyMaster>> GetCompaniesAsync(int? companyId = null);
     }
 }

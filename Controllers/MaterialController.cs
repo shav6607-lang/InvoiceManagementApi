@@ -3,6 +3,7 @@ using InvoiceManagementApi.Models;
 using InvoiceManagementApi.Repositories;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using InvoiceManagementApi.Utilities;
 
 namespace InvoiceManagementApi.Controllers
 {
@@ -41,11 +42,11 @@ namespace InvoiceManagementApi.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetList([FromQuery] int? companyId, [FromQuery] int? materialId)
+        public async Task<IActionResult> GetList([FromQuery] int? companyId, [FromQuery] int? materialId, [FromQuery] int? materialType)
         {
             try
             {
-                var data = await _repo.GetMaterialsAsync(companyId, materialId);
+               var data = await _repo.GetMaterialsAsync(companyId, materialId, materialType, CurrentUserId);
                 return Ok(new { Message = "Success", Data = data });
             }
             catch (System.Exception ex)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using System.Threading.Tasks;
 using InvoiceManagementApi.Models;
 using System;
+using InvoiceManagementApi.Utilities;
 
 namespace InvoiceManagementApi.Repositories
 {
@@ -25,7 +26,19 @@ namespace InvoiceManagementApi.Repositories
             {
                 throw new InvalidOperationException("Database connection string is not configured. Please set 'ConnectionStrings:DefaultConnection' (or 'ConnectionStrings:TCA') in appsettings.json or environment variables.");
             }
-
+            // If connection string is encrypted in configuration, attempt to decrypt it.
+            try
+            {
+                var decrypted = Utility.ConnectionStringDecrypt(_connectionString);
+                if (!string.IsNullOrWhiteSpace(decrypted))
+                {
+                    _connectionString = decrypted;
+                }
+            }
+            catch
+            {
+                // If decryption fails, fall back to original connection string
+            }
             _spName = _configuration["Auth:SpName"] ?? "USP_AuthenticateUser"; 
         }
         public async Task<AuthenticateResult> AuthenticateAsync(string username, string password)

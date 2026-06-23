@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using InvoiceManagementApi.Models;
+using InvoiceManagementApi.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
@@ -20,15 +21,32 @@ namespace InvoiceManagementApi.Repositories
 
         public DCRepository(IConfiguration configuration, ILogger<DCRepository> logger)
         {
-            _configuration = configuration;
-            _logger = logger;
-            _connectionString = configuration.GetConnectionString("DefaultConnection");
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            var rawConnectionString = configuration.GetConnectionString("DefaultConnection");
+            _connectionString = rawConnectionString;
+
+            if (!string.IsNullOrWhiteSpace(rawConnectionString))
+            {
+                try
+                {
+                    var decrypted = Utility.ConnectionStringDecrypt(rawConnectionString);
+                    if (!string.IsNullOrWhiteSpace(decrypted))
+                    {
+                        _connectionString = decrypted;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to decrypt connection string. Falling back to the raw configuration value.");
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(_connectionString))
             {
                 throw new InvalidOperationException("Database connection string is not configured. Please set 'ConnectionStrings:DefaultConnection' in appsettings.json or environment variables.");
             }
-
         }
         public async Task<IEnumerable<dynamic>> GetDCAsync(string? DCNum = null, string? fromDate = null, string? toDate = null, int? userid = 0)
         {
